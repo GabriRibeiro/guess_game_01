@@ -1,0 +1,51 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secretpass
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: guess-backend:1.0.0
+    environment:
+      FLASK_DB_TYPE: postgres
+      FLASK_DB_USER: postgres
+      FLASK_DB_NAME: postgres
+      FLASK_DB_PASSWORD: secretpass
+      FLASK_DB_HOST: db
+      FLASK_DB_PORT: "5432"
+    expose:
+      - "5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      replicas: 3
+    restart: always
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: guess-frontend:1.0.0
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  pgdata:
